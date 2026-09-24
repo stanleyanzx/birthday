@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>寻宝信号发射端</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: #1a1208;
+    color: #e8c4a8;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px; text-align: center;
+  }
+  h1 { font-size: 18px; letter-spacing: 3px; margin-bottom: 8px; font-weight: 600; }
+  .sub { font-size: 12px; color: #a08870; margin-bottom: 30px; line-height: 1.7; }
+  .btn {
+    width: 200px; height: 64px;
+    background: linear-gradient(135deg, #b76e79, #d48a96);
+    border: none; color: #fff; border-radius: 32px;
+    font-size: 18px; font-weight: 600; letter-spacing: 3px;
+    box-shadow: 0 8px 26px rgba(183,110,121,0.5);
+    cursor: pointer; touch-action: manipulation;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.off { background: linear-gradient(135deg, #555, #333); box-shadow: none; }
+  .status { margin-top: 26px; font-size: 14px; color: #b76e79; min-height: 22px; }
+  .tips { margin-top: 34px; font-size: 12px; color: #7d6a5a; line-height: 2; text-align: left; max-width: 300px; }
+  .tips b { color: #e8c4a8; }
+</style>
+</head>
+<body>
+  <h1>寻宝信号发射端</h1>
+  <div class="sub">循环发出 18kHz 高频声，手机麦克风能听到，人基本听不到</div>
+  <button class="btn" id="btn">开 始 发 射</button>
+  <div class="status" id="status">未启动</div>
+  <div class="tips">
+    <b>使用步骤：</b><br>
+    1. 点「开始发射」<br>
+    2. 音量调到最大（有的手机需先点一下视频/音乐再调）<br>
+    3. 屏幕常亮、别锁屏、别静音<br>
+    4. 把手机放到礼物旁边，喇叭朝外<br>
+    5. 玩家在离礼物较远处点「开启寻宝雷达」，再在雷达页点一下屏幕，慢慢走近即可
+  </div>
+
+<script>
+  let ctx = null, osc1 = null, osc2 = null, gain = null;
+  let on = false;
+
+  // 保持屏幕常亮（支持时生效）
+  let wakeLock = null;
+  async function tryWakeLock() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+
+  function start() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      gain = ctx.createGain();
+      gain.gain.value = 1.0;
+      gain.connect(ctx.destination);
+      // 18kHz 与 19kHz 两个正弦波叠加，确保被接收端 FFT 捕捉
+      osc1 = ctx.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.value = 18000;
+      osc2 = ctx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.value = 19000;
+      osc1.connect(gain);
+      osc2.connect(gain);
+      osc1.start();
+      osc2.start();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    tryWakeLock();
+  }
+
+  function stop() {
+    if (!ctx) return;
+    if (ctx.state === 'running') ctx.suspend();
+    if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  }
+
+  document.getElementById('btn').addEventListener('click', () => {
+    if (!on) {
+      start();
+      on = true;
+      document.getElementById('btn').textContent = '停 止 发 射';
+      document.getElementById('btn').classList.remove('off');
+      document.getElementById('status').textContent = '● 正在发射 18kHz 信号';
+    } else {
+      stop();
+      on = false;
+      document.getElementById('btn').textContent = '开 始 发 射';
+      document.getElementById('btn').classList.add('off');
+      document.getElementById('status').textContent = '已停止';
+    }
+  });
+</script>
+</body>
+</html>
