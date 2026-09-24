@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#6b4226">
+<link rel="manifest" href="manifest.json">
+<title>给你的生日惊喜</title>
+<style>
+  /* ========== 全局基础 ========== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body { height: 100%; overflow: hidden; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body {
+    background: #fff5f7; color: #5a3a2a;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+  }
+  /* Kitty 浮水印图案背景 - 透过 SVG 重复纹理铺满 */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    opacity: 0.18;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%23d4a6b8' stroke-width='1.5'><circle cx='40' cy='42' r='13' fill='%23ffffff'/><circle cx='32' cy='28' r='5' fill='%23ffffff' stroke='%23d4a6b8'/><circle cx='48' cy='28' r='5' fill='%23ffffff' stroke='%23d4a6b8'/><polygon points='32,33 28,22 35,28' fill='%23d4a6b8' stroke='none'/><polygon points='48,33 52,22 45,28' fill='%23d4a6b8' stroke='none'/><circle cx='36' cy='42' r='1.5' fill='%235a3a2a' stroke='none'/><circle cx='44' cy='42' r='1.5' fill='%235a3a2a' stroke='none'/><polygon points='40,46 37,49 43,49' fill='%23d4a6b8' stroke='none'/><path d='M34,46 Q40,52 46,46' fill='none' stroke='%23d4a6b8'/><circle cx='30' cy='46' r='2' fill='%23f5b8c9' stroke='none'/><circle cx='50' cy='46' r='2' fill='%23f5b8c9' stroke='none'/></g></svg>");
+    background-size: 80px 80px;
+  }
+
+  /* ========== 章节容器 ========== */
+  .screen { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.8s ease; overflow: hidden; }
+  .screen.active { opacity: 1; pointer-events: auto; }
+
+  /* ========== 启动页 ========== */
+  #screen-launch {
+    background: radial-gradient(ellipse at 50% 40%, #ffe4ec 0%, #fff5f7 70%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .launch-heart {
+    width: 80px; height: 80px; position: relative; margin-bottom: 40px;
+    filter: drop-shadow(0 0 30px rgba(192,133,82,0.7));
+    animation: heartBeat 1.5s ease-in-out infinite;
+  }
+  @keyframes heartBeat {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.15); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.1); }
+    60% { transform: scale(1); }
+  }
+  .launch-heart svg { width: 100%; height: 100%; }
+  .launch-title { font-size: 22px; letter-spacing: 4px; color: #5a3a2a; margin-bottom: 12px; font-weight: 300; }
+  .launch-sub { font-size: 13px; color: #c08552; letter-spacing: 2px; margin-bottom: 50px; }
+  .launch-btn {
+    background: linear-gradient(135deg, #c08552, #6b4226);
+    color: #5a3a2a; border: none; border-radius: 30px;
+    padding: 16px 48px; font-size: 16px; font-weight: 600; letter-spacing: 3px;
+    box-shadow: 0 8px 30px rgba(192,133,82,0.5);
+    cursor: pointer; transition: transform 0.15s;
+  }
+  .launch-btn:active { transform: scale(0.95); }
+  .launch-tip { font-size: 11px; color: #7d5a3a; margin-top: 24px; text-align: center; line-height: 1.8; max-width: 280px; }
+
+  /* ========== 关卡页 ========== */
+  #screen-puzzle {
+    background: linear-gradient(180deg, #fff5f7 0%, #ffe4ec 100%);
+    display: flex; flex-direction: column;
+  }
+  .pz-header {
+    padding: 16px 20px 12px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid rgba(192,133,82,0.2);
+  }
+  .pz-progress-text { font-size: 12px; color: #c08552; letter-spacing: 1px; }
+  .pz-progress-bar { flex: 1; margin: 0 16px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .pz-progress-fill { height: 100%; background: linear-gradient(90deg, #c08552, #6b4226); transition: width 0.6s; width: 0; }
+  .pz-hint-btn {
+    font-size: 11px; color: #c08552; background: rgba(192,133,82,0.15);
+    border: 1px solid rgba(192,133,82,0.3); border-radius: 12px;
+    padding: 4px 10px; cursor: pointer;
+  }
+  .pz-body { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
+  .pz-stage { display: none; padding: 30px 24px; }
+  .pz-stage.active { display: block; animation: fadeIn 0.6s ease; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  .pz-title { font-size: 18px; color: #5a3a2a; margin-bottom: 8px; letter-spacing: 1px; }
+  .pz-desc { font-size: 13px; color: #c08552; line-height: 1.7; margin-bottom: 24px; }
+
+  /* 关1: 找爱心 */
+  .find-heart-area {
+    position: relative; width: 100%; height: 380px;
+    background: linear-gradient(135deg, rgba(192,133,82,0.05), rgba(107,66,38,0.08));
+    border: 1px solid rgba(192,133,82,0.2);
+    border-radius: 16px; overflow: hidden;
+  }
+  .hidden-heart {
+    position: absolute; width: 44px; height: 44px; cursor: pointer;
+    opacity: 0.35; transition: opacity 0.3s, transform 0.3s, filter 0.3s;
+    filter: drop-shadow(0 0 4px rgba(192,133,82,0.3));
+    animation: heartFloat 3s ease-in-out infinite;
+  }
+  .hidden-heart:hover { opacity: 0.7; transform: scale(1.15); }
+  .hidden-heart:active { transform: scale(0.95); }
+  .hidden-heart.bursting {
+    animation: heartBurst 0.4s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes heartBurst {
+    0% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 8px rgba(192,133,82,0.6)); }
+    40% { transform: scale(2.2); opacity: 0.9; filter: drop-shadow(0 0 24px rgba(232,196,168,0.9)) brightness(1.5); }
+    100% { transform: scale(3.5); opacity: 0; filter: blur(8px); }
+  }
+  @keyframes heartFloat { 0%,100%{translate:0 0;} 50%{translate:0 -6px;} }
+  .heart-counter { text-align: center; font-size: 14px; color: #c08552; margin-top: 16px; letter-spacing: 1px; }
+  .heart-decoy {
+    position: absolute; width: 8px; height: 8px;
+    background: rgba(192,133,82,0.15); border-radius: 50%;
+    pointer-events: none;
+  }
+  .heart-hint-text {
+    position: absolute; bottom: 12px; left: 0; right: 0;
+    text-align: center; font-size: 11px; color: #7d5a3a;
+    letter-spacing: 1px; z-index: 1;
+  }
+  /* 爱心爆开后显示的图片 - 最终留在爱心位置 (人像 3:4) */
+  .heart-photo {
+    position: absolute;
+    width: 60px; height: 80px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(192,133,82,0.4), rgba(107,66,38,0.6));
+    border: 2px solid rgba(232,196,168,0.6);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 20px rgba(232,196,168,0.4);
+    background-size: cover; background-position: center top;
+    transform-origin: center center;
+    pointer-events: none;
+    z-index: 2;
+  }
+  /* 爆开瞬间用的大图 (人像 3:4) */
+  .heart-photo-large {
+    position: fixed;
+    top: 0; left: 0;
+    width: 90px; height: 120px;
+    border-radius: 12px;
+    background-size: cover; background-position: center top;
+    border: 3px solid rgba(232,196,168,0.8);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 60px rgba(232,196,168,0.7);
+    transform-origin: center center;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  /* 冲击波（图片爆开时圆形扩散） */
+  .heart-shockwave {
+    position: fixed;
+    border-radius: 50%;
+    border: 3px solid rgba(232,196,168,0.6);
+    pointer-events: none;
+    z-index: 9998;
+  }
+  .heart-burst-particle {
+    position: absolute;
+    width: 8px; height: 8px;
+    background: radial-gradient(circle, #e8c4a8, #c08552);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 6px rgba(232,196,168,0.8);
+  }
+
+  /* 关2: 翻牌 */
+  .memory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 320px; margin: 0 auto; }
+  .memory-card {
+    aspect-ratio: 3/4; perspective: 600px; cursor: pointer;
+  }
+  .memory-card-inner {
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d; transition: transform 0.5s;
+  }
+  .memory-card.flipped .memory-card-inner { transform: rotateY(180deg); }
+  .memory-card.matched .memory-card-inner { transform: rotateY(180deg); opacity: 0.4; }
+  .memory-face {
+    position: absolute; inset: 0; backface-visibility: hidden;
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+  }
+  .memory-front { background: linear-gradient(135deg, #6b4226, #c08552); }
+  .memory-back { background: #fff; color: #6b4226; transform: rotateY(180deg); }
+
+  /* 关3: 数字密码锁 */
+  .pw-display {
+    display: flex; gap: 12px; justify-content: center; margin: 30px 0;
+  }
+  .pw-cell {
+    width: 50px; height: 60px; border: 2px solid rgba(192,133,82,0.5);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: #5a3a2a; background: rgba(255,255,255,0.05);
+  }
+  .pw-cell.filled { border-color: #c08552; background: rgba(192,133,82,0.15); }
+  .pw-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
+  .pw-key {
+    aspect-ratio: 2/1; background: rgba(255,255,255,0.06); border: 1px solid rgba(192,133,82,0.3);
+    border-radius: 12px; color: #5a3a2a; font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pw-key:active { background: rgba(192,133,82,0.3); }
+  .pw-key.del { color: #c08552; }
+  .pw-clue { text-align: center; font-size: 13px; color: #c08552; line-height: 1.8; margin: 20px 0; }
+
+  /* 关4: 拼图 */
+  .puzzle-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    max-width: 280px; margin: 20px auto; aspect-ratio: 1;
+    background: rgba(192,133,82,0.1); border-radius: 8px; padding: 4px;
+  }
+  .puzzle-tile {
+    background-size: 300% 300%; cursor: pointer;
+    border-radius: 4px; transition: transform 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.4); font-size: 14px;
+  }
+  .puzzle-tile.empty { background: transparent; cursor: default; }
+  .puzzle-tile:active { transform: scale(0.95); }
+  .puzzle-moves { text-align: center; font-size: 12px; color: #a08870; margin-top: 12px; }
+  .puzzle-tile.snap-target { outline: 3px solid rgba(255,215,0,0.9); box-shadow: 0 0 16px rgba(255,215,0,0.7); z-index: 5; }
+  .puzzle-tile.hint-flash { animation: pzHintFlash 1.4s ease; }
+  @keyframes pzHintFlash {
+    0%,100% { outline: 0 solid transparent; box-shadow: none; }
+    20%,60% { outline: 3px solid rgba(255,215,0,0.9); box-shadow: 0 0 18px rgba(255,215,0,0.8); }
+    40%,80% { outline: 0 solid transparent; box-shadow: none; }
+  }
+  .puzzle-tile.snapped { animation: pzSnap 0.6s ease; }
+  @keyframes pzSnap {
+    0% { box-shadow: 0 0 26px rgba(183,110,121,1); transform: scale(1.08); }
+    100% { box-shadow: none; transform: scale(1); }
+  }
+  .puzzle-skip {
+    display: block; margin: 18px auto 0;
+    background: none; border: 1px solid rgba(192,133,82,0.4);
+    color: #a08870; padding: 8px 22px; border-radius: 18px;
+    font-size: 12px; letter-spacing: 1px; cursor: pointer;
+  }
+  .puzzle-skip:active { transform: scale(0.96); }
+
+  /* 关5: 选择题 */
+  .quiz-question { font-size: 16px; color: #5a3a2a; line-height: 1.6; margin-bottom: 24px; padding: 0 8px; }
+  .quiz-options { display: flex; flex-direction: column; gap: 12px; }
+  .quiz-opt {
+    padding: 14px 18px; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(192,133,82,0.3); border-radius: 12px;
+    color: #5a3a2a; font-size: 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .quiz-opt:active { transform: scale(0.98); }
+  .quiz-opt.correct { background: rgba(80,200,120,0.2); border-color: #50c878; }
+  .quiz-opt.wrong { background: rgba(255,80,80,0.2); border-color: #ff5050; animation: shake 0.4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  /* 通关完成 */
+  .pz-complete {
+    text-align: center; padding: 60px 24px;
+    display: none;
+  }
+  .pz-complete.active { display: block; animation: fadeIn 0.6s ease; }
+  .pz-complete h2 { font-size: 24px; color: #5a3a2a; margin-bottom: 12px; letter-spacing: 2px; }
+  .pz-complete p { font-size: 14px; color: #c08552; line-height: 1.8; margin-bottom: 40px; }
+  .pz-complete-btn {
+    background: linear-gradient(135deg, #c08552, #6b4226);
+    color: #5a3a2a; border: none; border-radius: 30px;
+    padding: 14px 40px; font-size: 15px; font-weight: 600;
+    letter-spacing: 2px; box-shadow: 0 6px 20px rgba(192,133,82,0.5);
+    cursor: pointer;
+  }
+  .pz-complete-btn:active { transform: scale(0.97); }
+
+  /* ========== 寻宝雷达页 ========== */
+  #screen-radar {
+    background: radial-gradient(ellipse at 50% 50%, #ffe4ec 0%, #fff5f7 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .radar-title { font-size: 14px; color: #c08552; letter-spacing: 3px; margin-bottom: 8px; }
+  .radar-desc { font-size: 12px; color: #a08870; margin-bottom: 30px; text-align: center; line-height: 1.8; }
+  .radar-circle {
+    width: 240px; height: 240px; border-radius: 50%;
+    border: 2px solid rgba(192,133,82,0.3);
+    position: relative; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle, rgba(192,133,82,0.08) 0%, transparent 70%);
+  }
+  .radar-circle::before, .radar-circle::after {
+    content: ''; position: absolute; border-radius: 50%; border: 1px solid rgba(192,133,82,0.2);
+  }
+  .radar-circle::before { width: 70%; height: 70%; }
+  .radar-circle::after { width: 40%; height: 40%; }
+  .radar-sweep {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(192,133,82,0.4) 30deg, transparent 60deg);
+    animation: radarSpin 3s linear infinite;
+  }
+  @keyframes radarSpin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+  .radar-percent {
+    font-size: 48px; font-weight: 700; color: #5a3a2a;
+    background: linear-gradient(180deg, #fff, #c08552);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; line-height: 1; z-index: 1;
+  }
+  .radar-label { font-size: 11px; color: #a08870; letter-spacing: 2px; margin-top: 4px; z-index: 1; }
+  .radar-status { font-size: 13px; margin-top: 30px; text-align: center; line-height: 1.8; }
+  .radar-status .lvl0 { color: #7d5a3a; }
+  .radar-status .lvl1 { color: #c08552; }
+  .radar-status .lvl2 { color: #ffaa00; }
+  .radar-status .lvl3 { color: #ff5050; }
+  .radar-bypass {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: #7d5a3a; background: rgba(255,255,255,0.04);
+    border: 1px dashed rgba(192,133,82,0.2); padding: 8px 16px; border-radius: 16px;
+    cursor: pointer;
+  }
+  .radar-bypass:active { background: rgba(192,133,82,0.1); }
+  .unlock-modal {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.85);
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    z-index: 10;
+  }
+  .unlock-modal.active { display: flex; }
+  .unlock-modal h3 { font-size: 16px; color: #5a3a2a; margin-bottom: 8px; }
+  .unlock-modal p { font-size: 12px; color: #c08552; margin-bottom: 24px; text-align: center; line-height: 1.8; }
+  .unlock-input {
+    display: flex; gap: 10px; margin-bottom: 20px;
+  }
+  .unlock-input input {
+    width: 40px; height: 50px; text-align: center; font-size: 22px;
+    background: rgba(255,255,255,0.05); border: 2px solid rgba(192,133,82,0.5);
+    border-radius: 8px; color: #5a3a2a; outline: none;
+  }
+  .unlock-input input:focus { border-color: #c08552; }
+  .unlock-submit {
+    background: linear-gradient(135deg, #c08552, #6b4226);
+    color: #5a3a2a; border: none; border-radius: 24px;
+    padding: 12px 32px; font-size: 14px; letter-spacing: 2px; cursor: pointer;
+  }
+  .unlock-submit:active { transform: scale(0.97); }
+
+  /* ========== 结尾页 ========== */
+  #screen-finale {
+    background: #fff5f7; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .finale-section { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; position: relative; }
+
+  /* 相识动画区 - 视频版 */
+  .story-video-wrap {
+    width: 100%; max-width: 360px; aspect-ratio: 4/3;
+    background: linear-gradient(135deg, #1a1208, #2a1f1a);
+    border-radius: 16px; overflow: hidden;
+    position: relative; margin-bottom: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 30px rgba(192,133,82,0.2);
+    border: 1px solid rgba(232,196,168,0.2);
+  }
+  #storyVideo {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    background: linear-gradient(135deg, #1a1208, #2a1f1a);
+  }
+  #storyVideo.placeholder { display: flex; align-items: center; justify-content: center; color: rgba(232,196,168,0.4); font-size: 12px; text-align: center; line-height: 1.6; }
+  .story-caption { font-size: 14px; color: #8a5a3a; text-align: center; line-height: 1.8; max-width: 320px; min-height: 48px; transition: opacity 0.5s; }
+
+  /* 双城往返图 - Canvas 版 */
+  .city-section { background: linear-gradient(180deg, #fff5f7 0%, #ffe4ec 100%); }
+  .city-canvas-wrap {
+    width: 100%; max-width: 380px; aspect-ratio: 4/3;
+    background: radial-gradient(ellipse at center, rgba(192,133,82,0.05) 0%, transparent 70%), linear-gradient(135deg, #1a1208, #0d0805);
+    border-radius: 16px;
+    border: 1px solid rgba(232,196,168,0.15);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(0,0,0,0.4);
+    position: relative; overflow: hidden;
+  }
+  #cityCanvas { width: 100%; height: 100%; display: block; }
+  .city-stats { display: flex; gap: 24px; margin-top: 30px; flex-wrap: wrap; justify-content: center; }
+  .city-stat { text-align: center; min-width: 80px; }
+  .city-stat-val { font-size: 32px; font-weight: 700; background: linear-gradient(180deg, #fff, #c08552); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+  .city-stat-label { font-size: 11px; color: #a08870; letter-spacing: 2px; margin-top: 4px; }
+  .city-tagline {
+    font-size: 20px; color: #8a5a3a; text-align: center; line-height: 1.6;
+    margin-top: 28px; letter-spacing: 3px; font-weight: 300;
+    opacity: 0; transition: opacity 1s;
+  }
+  .city-tagline.show { opacity: 1; }
+  .city-tagline.show .highlight {
+    animation: taglineGlow 2s ease-in-out infinite;
+  }
+  @keyframes taglineGlow {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 4px rgba(232,196,168,0.3)); }
+    50% { filter: brightness(1.3) drop-shadow(0 0 12px rgba(232,196,168,0.8)); }
+  }
+  .city-tagline .highlight {
+    font-size: 28px; font-weight: 700;
+    background: linear-gradient(90deg, #b76e79, #e8c4a8, #c08552);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  /* 情书打字机 */
+  .love-letter { font-size: 15px; line-height: 2.2; color: #5a3a2a; max-width: 320px; text-align: center; min-height: 280px; padding: 0 8px; }
+  .love-letter .cursor { display: inline-block; width: 2px; height: 16px; background: #c08552; vertical-align: text-bottom; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+  .love-sign { font-size: 14px; color: #c08552; margin-top: 24px; letter-spacing: 2px; opacity: 0; transition: opacity 0.8s; }
+  .love-sign.show { opacity: 1; }
+
+  /* 奖品转盘 */
+  .wheel-wrap { position: relative; width: 290px; height: 290px; margin: 0 auto; }
+  #wheelCanvas {
+    width: 100%; height: 100%; display: block;
+    filter: drop-shadow(0 10px 26px rgba(183,110,121,0.35));
+    will-change: transform;
+  }
+  .wheel-pointer {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; z-index: 2;
+    border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 28px solid #b76e79;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.18));
+  }
+  .wheel-btn {
+    display: block; margin: 26px auto 0;
+    background: linear-gradient(135deg, #b76e79, #d48a96);
+    border: none; color: #fff; padding: 13px 52px; border-radius: 26px;
+    font-size: 15px; font-weight: 600; letter-spacing: 3px; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(183,110,121,0.45);
+  }
+  .wheel-btn:active { transform: scale(0.96); }
+  .wheel-btn:disabled { opacity: 0.65; }
+  .wheel-result {
+    text-align: center; margin-top: 16px; font-size: 16px;
+    color: #b76e79; font-weight: 600; letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.6s;
+  }
+  .wheel-result.show { opacity: 1; }
+
+  /* 烟花画布 */
+  #fireworkCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+
+  /* 通用粒子背景 */
+  #bgCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+
+  /* 音乐按钮 */
+  .music-btn {
+    position: fixed; top: calc(env(safe-area-inset-top) + 16px); right: 16px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(192,133,82,0.2); border: 1px solid rgba(192,133,82,0.5);
+    display: flex; align-items: center; justify-content: center;
+    color: #c08552; font-size: 16px; cursor: pointer; z-index: 50;
+  }
+
+  /* 提示弹窗 */
+  .toast {
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #c08552; padding: 10px 20px;
+    border-radius: 20px; font-size: 13px; letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.3s; z-index: 200; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ========== 移动端 / 触屏优化 ========== */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  /* 消除部分元素的 300ms 点击延迟与双击缩放 */
+  button, .pz-hint-btn, .puzzle-skip, .quiz-opt, .pw-key, .memory-card, .radar-bypass, .music-btn, .unlock-submit, .pz-complete-btn, .launch-btn {
+    touch-action: manipulation;
+  }
+  /* 拼图拖拽需独占手势，防止指针被浏览器当作滚动而触发 pointercancel */
+  .puzzle-tile { touch-action: none; }
+
+  /* 触摸区域 ≥ 44px */
+  .pz-hint-btn { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .pw-key { min-height: 44px; }
+  .puzzle-skip { min-height: 44px; }
+  .radar-bypass { min-height: 44px; display: flex; align-items: center; }
+  .music-btn { top: calc(env(safe-area-inset-top) + 10px); right: 10px; width: 44px; height: 44px; }
+
+  /* 章节占满视口，兼容 iOS 动态工具栏 */
+  .finale-section { min-height: 100vh; min-height: 100dvh; }
+
+  /* 小屏适配：尺寸随视口缩放，桌面端不受影响 */
+  @media (max-width: 768px) {
+    .find-heart-area { height: 60vh; min-height: 320px; }
+    .wheel-wrap { width: min(290px, 80vw); height: min(290px, 80vw); }
+    .radar-circle { width: min(240px, 70vw); height: min(240px, 70vw); }
+    .radar-percent { font-size: 40px; }
+    .pw-cell { width: 44px; height: 56px; }
+    .unlock-input input { width: 44px; height: 52px; }
+    .love-letter { max-width: 100%; }
+    .launch-title { font-size: 20px; }
+  }
+
+  /* 用户系统开启"减弱动态效果"时，轻量化动画 */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 背景粒子 -->
+<canvas id="bgCanvas"></canvas>
+
+<!-- ============ 启动页 ============ -->
+<section class="screen active" id="screen-launch">
+  <div class="launch-heart">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#c08552" d="M256 477.1c0-152.6 0-226.2 0-226.2-76.6-67.3-151.2-36.1-151.2 51.3 0 75.3 81.2 93.2 151.2 175 152.3-81.8 151.2-99.7 151.2-175 0-87.4-74.6-118.6-151.2-51.3z"/>
+    </svg>
+  </div>
+  <div class="launch-title">给 你 的 生 日 惊 喜</div>
+  <div class="launch-sub">tap to begin · 点击启动</div>
+  <button class="launch-btn" id="launchStart">开 启</button>
+  <div class="launch-tip">建议在 Safari 中打开<br>开启后请保持屏幕亮起<br>准备好耳机更佳</div>
+</section>
+
+<!-- ============ 关卡页 ============ -->
+<section class="screen" id="screen-puzzle">
+  <div class="pz-header">
+    <div class="pz-progress-text"><span id="pzCurStage">1</span> / 5</div>
+    <div class="pz-progress-bar"><div class="pz-progress-fill" id="pzFill"></div></div>
+    <div class="pz-hint-btn" id="pzHint">提示</div>
+  </div>
+  <div class="pz-body">
+    <!-- 关1: 找爱心 -->
+    <div class="pz-stage active" data-stage="1">
+      <div class="pz-title">第 一 关 · 寻 心</div>
+      <div class="pz-desc">画面里有 3 颗爱心在轻轻发光<br>点击爱心，会有惊喜</div>
+      <div class="find-heart-area" id="heartArea">
+        <div class="heart-hint-text">爱心在轻轻闪烁，注意暖色光点</div>
+      </div>
+      <div class="heart-counter">已找到 <span id="heartFound">0</span> / 3</div>
+    </div>
+    <!-- 关2: 翻牌 -->
+    <div class="pz-stage" data-stage="2">
+      <div class="pz-title">第 二 关 · 记 忆</div>
+      <div class="pz-desc">翻出两对相同的图案</div>
+      <div class="memory-grid" id="memoryGrid"></div>
+    </div>
+    <!-- 关3: 数字密码锁 -->
+    <div class="pz-stage" data-stage="3">
+      <div class="pz-title">第 三 关 · 密 码</div>
+      <div class="pw-clue">我们在一起的日子<br>格式: MMDD (月日)</div>
+      <div class="pw-display" id="pwDisplay">
+        <div class="pw-cell"></div><div class="pw-cell"></div>
+        <div class="pw-cell"></div><div class="pw-cell"></div>
+      </div>
+      <div class="pw-keypad" id="pwKeypad"></div>
+    </div>
+    <!-- 关4: 拼图 -->
+    <div class="pz-stage" data-stage="4">
+      <div class="pz-title">第 四 关 · 拼 图</div>
+      <div class="pz-desc">按住碎片拖动，靠近正确位置会自动吸附归位<br>拼出完整照片</div>
+      <div class="puzzle-grid" id="puzzleGrid"></div>
+      <div class="puzzle-moves">步数: <span id="puzzleMoves">0</span></div>
+      <button class="puzzle-skip" id="puzzleSkip">跳过这一关 →</button>
+    </div>
+    <!-- 关5: 选择题 -->
+    <div class="pz-stage" data-stage="5">
+      <div class="pz-title">第 五 关 · 我 们</div>
+      <div class="quiz-question" id="quizQ">加载中…</div>
+      <div class="quiz-options" id="quizOpts"></div>
+    </div>
+    <!-- 通关 -->
+    <div class="pz-complete" id="pzComplete">
+      <h2>线 索 集 齐</h2>
+      <p>5 段线索已经拼好<br>真正的礼物，藏在房间的某个角落<br>它正在等你找到…</p>
+      <button class="pz-complete-btn" id="startRadarBtn">开启寻宝雷达</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 寻宝雷达页 ============ -->
+<section class="screen" id="screen-radar">
+  <div class="radar-title">寻 宝 雷 达</div>
+  <div class="radar-desc">在房间里慢慢走动<br>雷达会告诉你离礼物有多远</div>
+  <div class="radar-circle">
+    <div class="radar-sweep"></div>
+    <div style="text-align:center;">
+      <div class="radar-percent" id="radarPct">0</div>
+      <div class="radar-label">PROXIMITY</div>
+    </div>
+  </div>
+  <div class="radar-status lvl0" id="radarStatus">点击下方按钮开始寻宝</div>
+  <button class="radar-bypass" id="radarBypass">我已找到礼物，输入解锁码</button>
+  <div class="unlock-modal" id="unlockModal">
+    <h3>输入解锁码</h3>
+    <p>礼物上贴着一张小纸条<br>请输入上面的 4 位数字</p>
+    <div class="unlock-input">
+      <input type="tel" maxlength="1" data-idx="0">
+      <input type="tel" maxlength="1" data-idx="1">
+      <input type="tel" maxlength="1" data-idx="2">
+      <input type="tel" maxlength="1" data-idx="3">
+    </div>
+    <button class="unlock-submit" id="unlockSubmit">确 认</button>
+  </div>
+</section>
+
+<!-- ============ 结尾页 ============ -->
+<section class="screen" id="screen-finale">
+  <!-- 相识动画 -->
+  <div class="finale-section">
+    <div class="story-video-wrap">
+      <video id="storyVideo" src="scene7.mp4" playsinline webkit-playsinline muted loop preload="auto"></video>
+    </div>
+  </div>
+
+  <!-- 双城震撼图 -->
+  <div class="finale-section city-section">
+    <div style="font-size:14px;color:#c08552;letter-spacing:3px;margin-bottom:24px;">我 们 之 间 的 距 离</div>
+    <div class="city-canvas-wrap">
+      <canvas id="cityCanvas"></canvas>
+    </div>
+    <div class="city-stats" id="cityStats">
+      <div class="city-stat"><div class="city-stat-val" id="statTrips">0</div><div class="city-stat-label">次往返</div></div>
+      <div class="city-stat"><div class="city-stat-val" id="statKm">0</div><div class="city-stat-label">公里</div></div>
+      <div class="city-stat"><div class="city-stat-val" id="statHours">0</div><div class="city-stat-label">小时</div></div>
+    </div>
+  </div>
+
+  <!-- 奖品转盘 -->
+  <div class="finale-section">
+    <div style="font-size:14px;color:#c08552;letter-spacing:3px;margin-bottom:8px;">特 别 礼 物</div>
+    <div style="font-size:12px;color:#a08870;margin-bottom:30px;">转动转盘，领取属于你的生日礼物</div>
+    <div class="wheel-wrap">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheelCanvas"></canvas>
+    </div>
+    <button class="wheel-btn" id="wheelSpin">转 动</button>
+    <div class="wheel-result" id="wheelResult"></div>
+  </div>
+
+  <!-- 情书 -->
+  <div class="finale-section">
+    <div style="font-size:14px;color:#c08552;letter-spacing:3px;margin-bottom:30px;">最 后，给 你</div>
+    <div class="love-letter" id="loveLetter"><span class="cursor"></span></div>
+    
+  </div>
+</section>
+
+<!-- 烟花 -->
+<canvas id="fireworkCanvas"></canvas>
+
+<!-- 音乐按钮 -->
+<div class="music-btn" id="musicBtn" style="display:none;">♪</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =================================================================
+// 全局状态
+// =================================================================
+const Config = {
+  birthday: '2026-10-15T00:00:00',   // 她的生日
+  startDate: '2024-04-12',           // 你们在一起的日子 (关3密码)
+  herName: '宝宝',
+  unlockCode: '1015',                // 兜底解锁码（生日MMDD，可改）
+  tripsPerWeek: 1,                   // 每周往返次数
+  distanceOneWay: 150,              // 单程公里数（珠海-广州）
+  hoursOneWay: 2                     // 单程小时数
+};
+
+const State = {
+  currentScreen: 'launch',
+  currentStage: 1,
+  stagesCompleted: [false, false, false, false, false],
+  musicOn: false,
+  audio: null
+};
+
+// =================================================================
+// 工具函数
+// =================================================================
+function $(s) { return document.querySelector(s); }
+function $$(s) { return document.querySelectorAll(s); }
+function toast(msg, ms = 2000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+function switchScreen(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $('#screen-' + id).classList.add('active');
+  State.currentScreen = id;
+  window.scrollTo(0, 0);
+  if (id === 'finale') startFinale();
+}
+
+// =================================================================
+// 背景粒子（星空 + 飘落爱心）
+// =================================================================
+const bgCanvas = $('#bgCanvas');
+const bgCtx = bgCanvas.getContext('2d');
+let bgParticles = [];
+
+function resizeBg() {
+  bgCanvas.width = innerWidth * devicePixelRatio;
+  bgCanvas.height = innerHeight * devicePixelRatio;
+  bgCanvas.style.width = innerWidth + 'px';
+  bgCanvas.style.height = innerHeight + 'px';
+  bgCtx.scale(devicePixelRatio, devicePixelRatio);
+}
+function initBg() {
+  bgParticles = [];
+  // 移动端减少粒子数量，轻量化渲染
+  const count = innerWidth < 768 ? 20 : 40;
+  for (let i = 0; i < count; i++) {
+    bgParticles.push({
+      x: Math.random() * innerWidth,
+      y: Math.random() * innerHeight,
+      r: Math.random() * 1.5 + 0.3,
+      vy: Math.random() * 0.3 + 0.1,
+      a: Math.random() * 0.6 + 0.2,
+      twinkle: Math.random() * Math.PI * 2
+    });
+  }
+}
+function drawBg() {
+  bgCtx.clearRect(0, 0, innerWidth, innerHeight);
+  bgParticles.forEach(p => {
+    p.y += p.vy;
+    p.twinkle += 0.03;
+    if (p.y > innerHeight) { p.y = 0; p.x = Math.random() * innerWidth; }
+    const alpha = p.a * (0.5 + 0.5 * Math.sin(p.twinkle));
+    bgCtx.fillStyle = `rgba(212,166,184,${alpha})`;
+    bgCtx.beginPath();
+    bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    bgCtx.fill();
+  });
+  requestAnimationFrame(drawBg);
+}
+
+// =================================================================
+// 启动页
+// =================================================================
+$('#launchStart').addEventListener('click', () => {
+  initAudio();
+  switchScreen('puzzle');
+  initStage(1);
+});
+
+// =================================================================
+// 关卡系统
+// =================================================================
+function initStage(n) {
+  State.currentStage = n;
+  $$('.pz-stage').forEach(s => s.classList.remove('active'));
+  $(`.pz-stage[data-stage="${n}"]`).classList.add('active');
+  $('#pzCurStage').textContent = n;
+  $('#pzFill').style.width = ((n-1) / 5 * 100) + '%';
+  if (n === 1) setupStage1();
+  else if (n === 2) setupStage2();
+  else if (n === 3) setupStage3();
+  else if (n === 4) setupStage4();
+  else if (n === 5) setupStage5();
+}
+
+function completeStage(n) {
+  State.stagesCompleted[n-1] = true;
+  toast('✓ 线索 ' + n + ' 已获得');
+  setTimeout(() => {
+    if (n < 5) initStage(n + 1);
+    else {
+      $$('.pz-stage').forEach(s => s.classList.remove('active'));
+      $('#pzFill').style.width = '100%';
+      $('#pzComplete').classList.add('active');
+    }
+  }, 800);
+}
+
+$('#pzHint').addEventListener('click', () => {
+  const hints = {
+    1: '爱心在轻轻闪烁，仔细看粉色光点',
+    2: '先翻中间两张试试',
+    3: '我们在一起的日子，4月12日',
+    4: '拖动碎片到它发光的正确位置，靠近会自动吸附',
+    5: '选你觉得最像 Stanley 的那个答案'
+  };
+  toast(hints[State.currentStage] || '加油!');
+  // 关1：额外触发爱心高亮
+  if (State.currentStage === 1 && window._stage1Hint) {
+    setTimeout(window._stage1Hint, 300);
+  }
+  // 关4：额外高亮一块错位碎片及其正确位置
+  if (State.currentStage === 4 && window._stage4Hint) {
+    setTimeout(window._stage4Hint, 300);
+  }
+});
+
+// 关4：跳过按钮
+$('#puzzleSkip').addEventListener('click', () => {
+  toast('已跳过拼图');
+  setTimeout(() => completeStage(4), 400);
+});
+
+// ---- 关1: 找爱心 ----
+function setupStage1() {
+  const area = $('#heartArea');
+  // 保留底部提示文字
+  const hint = area.querySelector('.heart-hint-text');
+  area.innerHTML = '';
+  // 爱心位置 + 每颗爱心对应的图片
+  const positions = [
+    { x: 12, y: 18, photo: '关1图片1.jpg' },
+    { x: 70, y: 12, photo: '关1图片2.jpg' },
+    { x: 42, y: 65, photo: '关1图片3.jpg' }
+  ];
+  // 装饰小圆点（不干扰）
+  for (let i = 0; i < 8; i++) {
+    const decoy = document.createElement('div');
+    decoy.className = 'heart-decoy';
+    decoy.style.left = (Math.random() * 90 + 5) + '%';
+    decoy.style.top = (Math.random() * 80 + 8) + '%';
+    area.appendChild(decoy);
+  }
+  let found = 0;
+  const hearts = [];
+  positions.forEach((pos, i) => {
+    const h = document.createElement('div');
+    h.className = 'hidden-heart';
+    h.style.left = pos.x + '%';
+    h.style.top = pos.y + '%';
+    // 不同漂浮延迟，让爱心看起来在动
+    h.style.animationDelay = (i * 0.6) + 's';
+    h.innerHTML = `<svg viewBox="0 0 512 512" style="width:100%;height:100%;"><path fill="#b76e79" d="M256 477.1c0-152.6 0-226.2 0-226.2-76.6-67.3-151.2-36.1-151.2 51.3 0 75.3 81.2 93.2 151.2 175 152.3-81.8 151.2-99.7 151.2-175 0-87.4-74.6-118.6-151.2-51.3z"/></svg>`;
+    h.addEventListener('click', () => {
+      if (h.classList.contains('found') || h.classList.contains('bursting')) return;
+      h.classList.add('bursting');
+      // 计算爱心中心坐标 (相对视口)
+      const rect = h.getBoundingClientRect();
+      const heartCx = rect.left + rect.width / 2;
+      const heartCy = rect.top + rect.height / 2;
+      // 屏幕中心
+      const screenCx = window.innerWidth / 2;
+      const screenCy = window.innerHeight / 2;
+      // 大图尺寸 (90x120 人像比例，按屏宽适配)
+      const largeW = Math.min(window.innerWidth * 0.85, 300);
+      const largeScale = largeW / 90;
+
+      // 粒子爆炸 (爱心位置)
+      const areaRect = area.getBoundingClientRect();
+      const cx = rect.left - areaRect.left + rect.width / 2;
+      const cy = rect.top - areaRect.top + rect.height / 2;
+      for (let p = 0; p < 16; p++) {
+        const particle = document.createElement('div');
+        particle.className = 'heart-burst-particle';
+        particle.style.left = cx + 'px';
+        particle.style.top = cy + 'px';
+        area.appendChild(particle);
+        const angle = (Math.PI * 2 * p) / 16;
+        const dist = 60 + Math.random() * 40;
+        const dx = Math.cos(angle) * dist;
+        const dy = Math.sin(angle) * dist;
+        particle.animate([
+          { transform: 'translate(0,0) scale(1.4)', opacity: 1 },
+          { transform: `translate(${dx}px, ${dy}px) scale(0)`, opacity: 0 }
+        ], { duration: 800, easing: 'cubic-bezier(0.2,0.6,0.4,1)' }).onfinish = () => particle.remove();
+      }
+      // 冲击波 (从爱心位置扩散)
+      const shockwave = document.createElement('div');
+      shockwave.className = 'heart-shockwave';
+      shockwave.style.left = (heartCx - 25) + 'px';
+      shockwave.style.top = (heartCy - 25) + 'px';
+      shockwave.style.width = '50px';
+      shockwave.style.height = '50px';
+      document.body.appendChild(shockwave);
+      shockwave.animate([
+        { width: '50px', height: '50px', left: (heartCx-25)+'px', top: (heartCy-25)+'px', opacity: 1, borderWidth: '3px' },
+        { width: '300px', height: '300px', left: (heartCx-150)+'px', top: (heartCy-150)+'px', opacity: 0, borderWidth: '1px' }
+      ], { duration: 600, easing: 'ease-out' }).onfinish = () => shockwave.remove();
+
+      // 创建大图元素 (fixed 定位)
+      const largePhoto = document.createElement('div');
+      largePhoto.className = 'heart-photo-large';
+      // 尝试加载图片
+      const img = new Image();
+      img.onload = () => {
+        largePhoto.style.backgroundImage = `url('${pos.photo}')`;
+        runPhotoAnimation();
+      };
+      img.onerror = () => {
+        largePhoto.style.background = 'linear-gradient(135deg, rgba(192,133,82,0.4), rgba(107,66,38,0.6))';
+        runPhotoAnimation();
+      };
+      img.src = pos.photo;
+      document.body.appendChild(largePhoto);
+
+      // 图片弹射+缩回动画
+      function runPhotoAnimation() {
+        // 阶段1: 从爱心位置弹射到屏幕中间+放大 (带过冲)
+        const anim1 = largePhoto.animate([
+          { transform: `translate(${heartCx-45}px, ${heartCy-60}px) scale(0) rotate(-15deg)`, opacity: 0 },
+          { transform: `translate(${screenCx-45}px, ${screenCy-60}px) scale(${largeScale*1.15}) rotate(4deg)`, opacity: 1, offset: 0.6 },
+          { transform: `translate(${screenCx-45}px, ${screenCy-60}px) scale(${largeScale}) rotate(0deg)`, opacity: 1 }
+        ], { duration: 600, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)', fill: 'forwards' });
+
+        anim1.onfinish = () => {
+          // 阶段2: 停留 1.2s
+          setTimeout(() => {
+            // 阶段3: 缩小+飞回爱心位置
+            const anim2 = largePhoto.animate([
+              { transform: `translate(${screenCx-45}px, ${screenCy-60}px) scale(${largeScale}) rotate(0)`, opacity: 1 },
+              { transform: `translate(${heartCx-45}px, ${heartCy-60}px) scale(0.7) rotate(0)`, opacity: 1 }
+            ], { duration: 700, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' });
+            anim2.onfinish = () => {
+              // 移除大图，在爱心位置加小图
+              largePhoto.remove();
+              const mini = document.createElement('div');
+              mini.className = 'heart-photo';
+              mini.style.backgroundImage = `url('${pos.photo}')`;
+              mini.style.left = (pos.x + 4) + '%';
+              mini.style.top = (pos.y + 5) + '%';
+              area.appendChild(mini);
+              // 小图入场动画
+              mini.animate([
+                { transform: 'scale(0.7)', opacity: 0.5 },
+                { transform: 'scale(1.15)', opacity: 1, offset: 0.6 },
+                { transform: 'scale(1)', opacity: 1 }
+              ], { duration: 300, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'forwards' });
+            };
+          }, 1200);
+        };
+      }
+      found++;
+      $('#heartFound').textContent = found;
+      if (found === 3) {
+        setTimeout(() => completeStage(1), 3500);
+      }
+    });
+    hearts.push(h);
+    area.appendChild(h);
+  });
+  // 加回提示文字
+  area.appendChild(hint);
+  $('#heartFound').textContent = '0';
+
+  // 提示功能：让爱心高亮闪一下
+  window._stage1Hint = () => {
+    hearts.forEach(h => {
+      if (!h.classList.contains('found') && !h.classList.contains('bursting')) {
+        h.style.transition = 'opacity 0.15s, transform 0.15s';
+        h.style.opacity = '1';
+        h.style.transform = 'scale(1.3)';
+        setTimeout(() => {
+          h.style.opacity = '';
+          h.style.transform = '';
+          h.style.transition = '';
+        }, 1000);
+      }
+    });
+    toast('爱心闪了一下，仔细看!');
+  };
+}
+
+// ---- 关2: 翻牌配对 ----
+function setupStage2() {
+  const grid = $('#memoryGrid');
+  grid.innerHTML = '';
+  const emojis = ['💖', '💖', '🎂', '🎂', '✨', '✨'];
+  emojis.sort(() => Math.random() - 0.5);
+  let flipped = [];
+  let matched = 0;
+  emojis.forEach((emoji, i) => {
+    const card = document.createElement('div');
+    card.className = 'memory-card';
+    card.innerHTML = `<div class="memory-card-inner">
+      <div class="memory-face memory-front">?</div>
+      <div class="memory-face memory-back">${emoji}</div>
+    </div>`;
+    card.addEventListener('click', () => {
+      if (card.classList.contains('flipped') || card.classList.contains('matched') || flipped.length >= 2) return;
+      card.classList.add('flipped');
+      flipped.push({ card, emoji });
+      if (flipped.length === 2) {
+        setTimeout(() => {
+          if (flipped[0].emoji === flipped[1].emoji) {
+            flipped.forEach(f => f.card.classList.add('matched'));
+            matched++;
+            if (matched === 3) setTimeout(() => completeStage(2), 500);
+          } else {
+            flipped.forEach(f => f.card.classList.remove('flipped'));
+          }
+          flipped = [];
+        }, 700);
+      }
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ---- 关3: 数字密码锁 ----
+function setupStage3() {
+  const pw = Config.startDate.slice(5).replace('-', ''); // MMDD
+  let input = '';
+  const display = $('#pwDisplay');
+  const keypad = $('#pwKeypad');
+  display.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const c = document.createElement('div');
+    c.className = 'pw-cell';
+    display.appendChild(c);
+  }
+  keypad.innerHTML = '';
+  ['1','2','3','4','5','6','7','8','9','del','0','ok'].forEach(k => {
+    const btn = document.createElement('div');
+    btn.className = 'pw-key' + (k === 'del' ? ' del' : '');
+    btn.textContent = k === 'del' ? '←' : (k === 'ok' ? '✓' : k);
+    btn.addEventListener('click', () => {
+      if (k === 'del') {
+        input = input.slice(0, -1);
+      } else if (k === 'ok') {
+        if (input === pw) {
+          toast('✓ 密码正确');
+          setTimeout(() => completeStage(3), 600);
+        } else {
+          toast('再想想…', 1500);
+          input = '';
+        }
+      } else if (input.length < 4) {
+        input += k;
+      }
+      updatePwDisplay();
+    });
+    keypad.appendChild(btn);
+  });
+  function updatePwDisplay() {
+    $$('.pw-cell').forEach((c, i) => {
+      c.textContent = input[i] || '';
+      c.classList.toggle('filled', !!input[i]);
+    });
+  }
+}
+
+// ---- 关4: 拼图 (拖拽自由交换) ----
+function setupStage4() {
+  const grid = $('#puzzleGrid');
+  grid.innerHTML = '';
+  // 图片 URL
+  const PUZZLE_IMG = '拉拽图片拼图.jpg';
+  // 3x3 = 9 块，全部是图块（没有空格），用拖拽交换任意两块
+  let tiles = [0,1,2,3,4,5,6,7,8];
+  // 打乱 (10 次随机交换，避免完全乱序太难)
+  for (let i = 0; i < 10; i++) {
+    const a = Math.floor(Math.random() * 9);
+    const b = Math.floor(Math.random() * 9);
+    [tiles[a], tiles[b]] = [tiles[b], tiles[a]];
+  }
+  // 避免碰巧打乱后已有序
+  if (tiles.every((t,i) => t === i)) {
+    [tiles[0], tiles[1]] = [tiles[1], tiles[0]];
+  }
+  let moves = 0;
+  let draggingIdx = null;
+  let dragEl = null;
+  let startX = 0, startY = 0;
+
+  function setTileBg(cell, t) {
+    const row = Math.floor(t / 3);
+    const col = t % 3;
+    cell.style.backgroundImage = `url('${PUZZLE_IMG}')`;
+    cell.style.backgroundSize = '300% 300%';
+    cell.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+    cell.style.backgroundRepeat = 'no-repeat';
+    cell.dataset.t = t;
+  }
+
+  function updateCell(i) {
+    const cell = grid.children[i];
+    const t = tiles[i];
+    setTileBg(cell, t);
+    cell.textContent = '';
+  }
+
+  function render() {
+    grid.innerHTML = '';
+    tiles.forEach((t, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'puzzle-tile';
+      cell.dataset.idx = i;
+      setTileBg(cell, t);
+      cell.textContent = '';
+      cell.addEventListener('pointerdown', onDown);
+      grid.appendChild(cell);
+    });
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    dragEl = e.currentTarget;
+    draggingIdx = parseInt(dragEl.dataset.idx);
+    startX = e.clientX; startY = e.clientY;
+    dragEl.style.zIndex = '10';
+    dragEl.style.transition = 'none';
+    dragEl.style.boxShadow = '0 8px 24px rgba(192,133,82,0.6)';
+    try { dragEl.setPointerCapture(e.pointerId); } catch(err) {}
+    dragEl.addEventListener('pointermove', onMove);
+    dragEl.addEventListener('pointerup', onUp);
+    dragEl.addEventListener('pointercancel', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragEl) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    dragEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
+    // 磁吸引导：靠近正确位置时高亮该格子
+    $$('.puzzle-tile.snap-target').forEach(c => c.classList.remove('snap-target'));
+    const home = grid.children[tiles[draggingIdx]];
+    if (home) {
+      const hr = home.getBoundingClientRect();
+      const hx = hr.left + hr.width / 2, hy = hr.top + hr.height / 2;
+      if (Math.hypot(e.clientX - hx, e.clientY - hy) < hr.width * 1.1) {
+        home.classList.add('snap-target');
+      }
+    }
+  }
+
+  function onUp(e) {
+    if (!dragEl) return;
+    const el = dragEl;
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup', onUp);
+    el.removeEventListener('pointercancel', onUp);
+    $$('.puzzle-tile.snap-target').forEach(c => c.classList.remove('snap-target'));
+    // 暂时关闭被拖元素的 pointerEvents，以便 elementFromPoint 找到下方目标
+    el.style.pointerEvents = 'none';
+    let target = document.elementFromPoint(e.clientX, e.clientY);
+    el.style.pointerEvents = '';
+    // 磁吸兜底：没压到格子上时，吸附到网格内最近的格子
+    if (!target || !target.classList.contains('puzzle-tile') || target === el) {
+      const gridRect = grid.getBoundingClientRect();
+      const cellW = gridRect.width / 3, cellH = gridRect.height / 3;
+      const relX = e.clientX - gridRect.left, relY = e.clientY - gridRect.top;
+      if (relX >= -cellW * 0.4 && relY >= -cellH * 0.4 && relX <= gridRect.width + cellW * 0.4 && relY <= gridRect.height + cellH * 0.4) {
+        const col = Math.max(0, Math.min(2, Math.floor(relX / cellW)));
+        const row = Math.max(0, Math.min(2, Math.floor(relY / cellH)));
+        target = grid.children[row * 3 + col];
+      }
+    }
+    // 先复位视觉
+    el.style.transition = 'transform 0.2s ease, box-shadow 0.2s';
+    el.style.transform = '';
+    el.style.boxShadow = '';
+    el.style.zIndex = '';
+    let snappedHome = false;
+    if (target && target.classList.contains('puzzle-tile') && target !== el) {
+      const targetIdx = parseInt(target.dataset.idx);
+      const pieceVal = tiles[draggingIdx];
+      // 交换两块
+      [tiles[draggingIdx], tiles[targetIdx]] = [tiles[targetIdx], tiles[draggingIdx]];
+      moves++;
+      $('#puzzleMoves').textContent = moves;
+      updateCell(draggingIdx);
+      updateCell(targetIdx);
+      // 磁吸归位特效：碎片落在了它的正确位置
+      if (targetIdx === pieceVal) {
+        snappedHome = true;
+        const cell = grid.children[targetIdx];
+        cell.classList.remove('snapped');
+        void cell.offsetWidth;
+        cell.classList.add('snapped');
+      }
+      // 检查是否完成
+      if (tiles.every((t,i) => t === i)) {
+        puzzleWinFx();
+        setTimeout(() => completeStage(4), 1000);
+      } else if (snappedHome) {
+        toast('✓ 归位成功');
+      }
+    }
+    dragEl = null; draggingIdx = null;
+  }
+
+  // 完成瞬间：网格中心小烟花 + toast
+  function puzzleWinFx() {
+    const r = grid.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    fireworkAt(cx, cy, 36, '#b76e79');
+    setTimeout(() => fireworkAt(cx - 70, cy - 40, 28, '#ffd700'), 180);
+    setTimeout(() => fireworkAt(cx + 70, cy + 30, 28, '#ff9ec7'), 360);
+    toast('🧩 拼图完成！');
+  }
+
+  // 提示：高亮一块错位碎片 + 它的正确位置
+  window._stage4Hint = function() {
+    const wrong = tiles.findIndex((t, i) => t !== i);
+    if (wrong === -1) { toast('已经拼好啦'); return; }
+    const pos = tiles.indexOf(wrong);
+    const flash = (c) => { c.classList.remove('hint-flash'); void c.offsetWidth; c.classList.add('hint-flash'); };
+    flash(grid.children[wrong]);  // 正确位置
+    flash(grid.children[pos]);    // 碎片当前所在
+  };
+  render();
+}
+
+// ---- 关5: 选择题 ----
+const QuizData = [
+  {
+    q: '我们第一次见面吃的饭店？',
+    options: ['泰马', '泰盏鬼', '泰嘉', '泰foshow'],
+    correct: 0
+  },
+  {
+    q: '去年宝宝生日我们在什么酒店民宿过的？',
+    options: ['望海楼', '喜来登', '广州超大民宿（最后睡了鼻屎房间）', '瑰宝酒店'],
+    correct: 2
+  },
+  {
+    q: '去年宝宝生日吃的蛋糕？',
+    options: ['kitty蛋糕', 'Olu蛋糕', '腊肠犬蛋糕', '大笨蛋糕'],
+    correct: 1
+  }
+];
+let quizIdx = 0;
+function setupStage5() {
+  quizIdx = 0;
+  renderQuiz();
+}
+function renderQuiz() {
+  if (quizIdx >= QuizData.length) {
+    setTimeout(() => completeStage(5), 500);
+    return;
+  }
+  const q = QuizData[quizIdx];
+  $('#quizQ').textContent = `Q${quizIdx+1}: ${q.q}`;
+  const opts = $('#quizOpts');
+  opts.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const el = document.createElement('div');
+    el.className = 'quiz-opt';
+    el.textContent = opt;
+    el.addEventListener('click', () => {
+      if (i === q.correct) {
+        el.classList.add('correct');
+        setTimeout(() => {
+          quizIdx++;
+          renderQuiz();
+        }, 600);
+      } else {
+        el.classList.add('wrong');
+      }
+    });
+    opts.appendChild(el);
+  });
+}
+
+$('#startRadarBtn').addEventListener('click', () => switchScreen('radar'));
+
+// =================================================================
+// 寻宝雷达
+// =================================================================
+let radarAudioCtx, radarAnalyser, radarStream, radarData;
+let radarRunning = false;
+let radarBaseline = 0;
+let radarRaf = null;
+
+async function startRadar() {
+  try {
+    radarStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
+    });
+    radarAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = radarAudioCtx.createMediaStreamSource(radarStream);
+    radarAnalyser = radarAudioCtx.createAnalyser();
+    radarAnalyser.fftSize = 2048;
+    radarData = new Uint8Array(radarAnalyser.frequencyBinCount);
+    source.connect(radarAnalyser);
+    radarRunning = true;
+    // 校准基线
+    let sum = 0;
+    for (let i = 0; i < 10; i++) {
+      radarAnalyser.getByteFrequencyData(radarData);
+      sum += getSignalStrength();
+      await new Promise(r => setTimeout(r, 100));
+    }
+    radarBaseline = sum / 10 + 5;
+    radarLoop();
+  } catch (e) {
+    toast('麦克风不可用，请用解锁码');
+    console.warn('Radar mic error:', e);
+  }
+}
+
+function getSignalStrength() {
+  // 检查 18kHz 和 19kHz 附近的能量
+  const sr = radarAudioCtx.sampleRate;
+  const bin = sr / radarAnalyser.fftSize;
+  const target18 = Math.round(18000 / bin);
+  const target19 = Math.round(19000 / bin);
+  let s = 0;
+  // 取周围 3 个 bin 的最大值
+  for (let i = -1; i <= 1; i++) {
+    s = Math.max(s, radarData[target18 + i] || 0, radarData[target19 + i] || 0);
+  }
+  return s;
+}
+
+function radarLoop() {
+  if (!radarRunning) return;
+  radarAnalyser.getByteFrequencyData(radarData);
+  const sig = getSignalStrength();
+  const delta = Math.max(0, sig - radarBaseline);
+  // 转换为接近度 0-100
+  const pct = Math.min(100, Math.floor(delta / 50 * 100));
+  $('#radarPct').textContent = pct;
+  const status = $('#radarStatus');
+  status.className = 'radar-status';
+  if (pct < 20) {
+    status.classList.add('lvl0');
+    status.textContent = '还很远… 继续在房间走动';
+  } else if (pct < 50) {
+    status.classList.add('lvl1');
+    status.textContent = '感觉到一点信号了';
+  } else if (pct < 80) {
+    status.classList.add('lvl2');
+    status.textContent = '越来越近了！';
+    if (navigator.vibrate) navigator.vibrate(50);
+  } else {
+    status.classList.add('lvl3');
+    status.textContent = '🔥 就在附近！仔细找！';
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    if (pct >= 95) {
+      foundGift();
+      return;
+    }
+  }
+  radarRaf = requestAnimationFrame(radarLoop);
+}
+
+function foundGift() {
+  radarRunning = false;
+  if (radarStream) radarStream.getTracks().forEach(t => t.stop());
+  if (radarRaf) cancelAnimationFrame(radarRaf);
+  $('#radarPct').textContent = '100';
+  $('#radarStatus').textContent = '🎉 找到啦！';
+  setTimeout(() => switchScreen('finale'), 1500);
+}
+
+// 兜底解锁码
+$('#radarBypass').addEventListener('click', () => {
+  $('#unlockModal').classList.add('active');
+  const inputs = $$('.unlock-input input');
+  inputs[0].focus();
+  inputs.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+      if (inp.value && i < inputs.length - 1) inputs[i+1].focus();
+    });
+  });
+});
+
+$('#unlockSubmit').addEventListener('click', () => {
+  const code = Array.from($$('.unlock-input input')).map(i => i.value).join('');
+  if (code === Config.unlockCode) {
+    $('#unlockModal').classList.remove('active');
+    foundGift();
+  } else {
+    toast('解锁码错误', 1500);
+    $$('.unlock-input input').forEach(i => i.value = '');
+    $$('.unlock-input input')[0].focus();
+  }
+});
+
+// 第一次点击雷达页时启动麦克风
+let radarInited = false;
+$('#screen-radar').addEventListener('click', () => {
+  if (!radarInited) {
+    radarInited = true;
+    startRadar();
+  }
+});
+
+// =================================================================
+// 结尾页 - 像素小人动画
+// =================================================================
+function startFinale() {
+  playFireworks();
+  playStoryVideo();
+  drawCityMap();
+  setupWheel();
+  startLoveLetter();
+}
+
+// ----- 相识动画 (视频驱动) -----
+let storyVideoEl = null;
+
+function playStoryVideo() {
+  storyVideoEl = $('#storyVideo');
+  if (!storyVideoEl) return;
+  const playPromise = storyVideoEl.play();
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(() => {
+      // 自动播放被拦截 (微信内常见)，用户首次点击视频时再播放
+      const resumePlay = () => {
+        storyVideoEl.play().catch(()=>{});
+        storyVideoEl.removeEventListener('click', resumePlay);
+        storyVideoEl.removeEventListener('touchend', resumePlay);
+      };
+      storyVideoEl.addEventListener('click', resumePlay);
+      storyVideoEl.addEventListener('touchend', resumePlay);
+    });
+  }
+}
+
+// ----- 双城往返震撼图 (Canvas 版) -----
+function getTrips() {
+  const start = new Date(Config.startDate);
+  const end = new Date('2026-10-15');
+  const weeks = Math.floor((end - start) / (7 * 86400000));
+  return weeks;
+}
+const TOTAL_TRIPS = getTrips();
+
+let cityCanvas = null;
+let cityCtx = null;
+let cityW = 0, cityH = 0;
+let cityTripsDrawn = 0;
+let cityRAF = null;
+let cityTrainT = 0; // 火车位置参数 [0, 1]
+let cityFinished = false;
+
+// 城市坐标 (相对画布百分比位置)
+const CITY_ZH = { name: '珠海', sub: '你', x: 0.18, y: 0.5, color: '#b76e79' };
+const CITY_GZ = { name: '广州', sub: '我', x: 0.82, y: 0.5, color: '#c08552' };
+
+function drawCityMap() {
+  cityCanvas = $('#cityCanvas');
+  if (!cityCanvas) { animateCityStats(); return; }
+  cityCtx = cityCanvas.getContext('2d');
+  resizeCityCanvas();
+  window.addEventListener('resize', resizeCityCanvas);
+  // 启动累积动画
+  cityTripsDrawn = 0;
+  addCityTrip();
+}
+
+function resizeCityCanvas() {
+  if (!cityCanvas) return;
+  const rect = cityCanvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cityCanvas.width = rect.width * dpr;
+  cityCanvas.height = rect.height * dpr;
+  cityCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cityW = rect.width;
+  cityH = rect.height;
+}
+
+// 贝塞尔曲线点 (两点之间带弧度的曲线)
+function bezierPoint(t, p0, p1, p2) {
+  const mt = 1 - t;
+  return { x: mt*mt*p0.x + 2*mt*t*p1.x + t*t*p2.x, y: mt*mt*p0.y + 2*mt*t*p1.y + t*t*p2.y };
+}
+
+function getTripCurve(i, total) {
+  // 两城市坐标 (像素)
+  const x1 = CITY_ZH.x * cityW, y1 = CITY_ZH.y * cityH;
+  const x2 = CITY_GZ.x * cityW, y2 = CITY_GZ.y * cityH;
+  // 弧度参数 (每条线略不同)
+  const phase = i / total * Math.PI * 4;
+  const arcOffset = Math.sin(phase) * cityH * 0.18 + (i % 2 === 0 ? -1 : 1) * cityH * 0.05;
+  // 控制点在两点中点上方
+  const cx = (x1 + x2) / 2;
+  const cy = (y1 + y2) / 2 - cityH * 0.25 + arcOffset;
+  return { p0: {x:x1,y:y1}, p1: {x:cx,y:cy}, p2: {x:x2,y:y2} };
+}
+
+function addCityTrip() {
+  if (cityTripsDrawn >= TOTAL_TRIPS) {
+    // 全部画完，启动火车循环 + tagline
+    cityFinished = true;
+    $('#statTrips').textContent = TOTAL_TRIPS;
+    setTimeout(() => animateCityStats(), 300);
+    setTimeout(() => bigFirework(), 1800);
+    // 启动 RAF 渲染循环 (持续画线 + 火车)
+    if (!cityRAF) cityRAF = requestAnimationFrame(renderCityLoop);
+    return;
+  }
+  // 每帧加 2 条，约 80 帧画完
+  const batch = Math.ceil(TOTAL_TRIPS / 80);
+  for (let i = 0; i < batch && cityTripsDrawn < TOTAL_TRIPS; i++) cityTripsDrawn++;
+  $('#statTrips').textContent = cityTripsDrawn;
+  // 启动 RAF (只跑一次)
+  if (!cityRAF) cityRAF = requestAnimationFrame(renderCityLoop);
+  setTimeout(addCityTrip, 60);
+}
+
+function renderCityLoop() {
+  // 火车参数推进 (从珠海到广州再返回，2 秒一个来回)
+  cityTrainT += 0.008;
+  if (cityTrainT > 1) cityTrainT = 0;
+  // 重绘
+  cityCtx.clearRect(0, 0, cityW, cityH);
+  drawCityBackground();
+  drawCityRoutes();
+  drawCityCards();
+  if (cityFinished) drawTrain();
+  cityRAF = requestAnimationFrame(renderCityLoop);
+}
+
+function drawCityBackground() {
+  // 背景星点
+  for (let i = 0; i < 30; i++) {
+    const sx = ((i * 37) % cityW);
+    const sy = ((i * 53) % (cityH * 0.5));
+    cityCtx.fillStyle = `rgba(232,196,168,${0.1 + (i%3)*0.05})`;
+    cityCtx.fillRect(sx, sy, 1, 1);
+  }
+}
+
+function drawCityRoutes() {
+  // 画已累积的往返线
+  for (let i = 0; i < cityTripsDrawn; i++) {
+    const curve = getTripCurve(i, TOTAL_TRIPS);
+    // 渐变颜色: 珠海(玫瑰金) → 广州(深棕)
+    const grad = cityCtx.createLinearGradient(curve.p0.x, curve.p0.y, curve.p2.x, curve.p2.y);
+    grad.addColorStop(0, 'rgba(183,110,121,0.6)');
+    grad.addColorStop(0.5, 'rgba(232,196,168,0.4)');
+    grad.addColorStop(1, 'rgba(192,133,82,0.6)');
+    cityCtx.strokeStyle = grad;
+    cityCtx.lineWidth = 1.2;
+    cityCtx.globalAlpha = cityFinished ? 0.5 : 0.25;
+    cityCtx.beginPath();
+    cityCtx.moveTo(curve.p0.x, curve.p0.y);
+    cityCtx.quadraticCurveTo(curve.p1.x, curve.p1.y, curve.p2.x, curve.p2.y);
+    cityCtx.stroke();
+  }
+  cityCtx.globalAlpha = 1;
+}
+
+function drawCityCards() {
+  // 珠海卡片 (左)
+  drawCityCard(CITY_ZH);
+  // 广州卡片 (右)
+  drawCityCard(CITY_GZ);
+}
+
+function drawCityCard(city) {
+  const cx = city.x * cityW;
+  const cy = city.y * cityH;
+  // 外圈光晕
+  const glowGrad = cityCtx.createRadialGradient(cx, cy, 0, cx, cy, 28);
+  glowGrad.addColorStop(0, 'rgba(232,196,168,0.5)');
+  glowGrad.addColorStop(1, 'rgba(232,196,168,0)');
+  cityCtx.fillStyle = glowGrad;
+  cityCtx.beginPath();
+  cityCtx.arc(cx, cy, 28, 0, Math.PI * 2);
+  cityCtx.fill();
+  // 主圆点 (彩色)
+  cityCtx.fillStyle = city.color;
+  cityCtx.shadowColor = city.color;
+  cityCtx.shadowBlur = 12;
+  cityCtx.beginPath();
+  cityCtx.arc(cx, cy, 9, 0, Math.PI * 2);
+  cityCtx.fill();
+  cityCtx.shadowBlur = 0;
+  // 内圆 (高光)
+  cityCtx.fillStyle = 'rgba(255,255,255,0.5)';
+  cityCtx.beginPath();
+  cityCtx.arc(cx - 2, cy - 2, 3, 0, Math.PI * 2);
+  cityCtx.fill();
+  // 城市名
+  cityCtx.fillStyle = '#e8c4a8';
+  cityCtx.font = 'bold 16px -apple-system, "PingFang SC", sans-serif';
+  cityCtx.textAlign = 'center';
+  cityCtx.fillText(city.name, cx, cy - 22);
+  // 副标题 (你/我)
+  cityCtx.fillStyle = 'rgba(232,196,168,0.6)';
+  cityCtx.font = '11px -apple-system, "PingFang SC", sans-serif';
+  cityCtx.fillText(city.sub, cx, cy + 28);
+}
+
+function drawTrain() {
+  // 火车沿 0 号曲线运动 (来回: 0→1→0→1...)
+  // 用 sin 函数让火车来回: t=0→0.5 时 0→1, t=0.5→1 时 1→0
+  const phase = cityTrainT * 2;
+  let t;
+  let direction;
+  if (phase < 1) {
+    t = phase; direction = 1; // 珠海→广州
+  } else {
+    t = 2 - phase; direction = -1; // 广州→珠海
+  }
+  const curve = getTripCurve(0, 1);
+  const pos = bezierPoint(t, curve.p0, curve.p1, curve.p2);
+  // 拖尾 (5 段渐变)
+  for (let i = 0; i < 8; i++) {
+    const trailT = Math.max(0, t - i * 0.02 * direction);
+    const trailPos = bezierPoint(trailT, curve.p0, curve.p1, curve.p2);
+    const alpha = (1 - i / 8) * 0.4;
+    cityCtx.fillStyle = `rgba(232,196,168,${alpha})`;
+    cityCtx.beginPath();
+    cityCtx.arc(trailPos.x, trailPos.y, 3 - i*0.3, 0, Math.PI * 2);
+    cityCtx.fill();
+  }
+  // 火车头 (亮点)
+  cityCtx.fillStyle = '#fff';
+  cityCtx.shadowColor = '#e8c4a8';
+  cityCtx.shadowBlur = 16;
+  cityCtx.beginPath();
+  cityCtx.arc(pos.x, pos.y, 5, 0, Math.PI * 2);
+  cityCtx.fill();
+  cityCtx.shadowBlur = 0;
+  // 外圈光晕
+  const trainGlow = cityCtx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 15);
+  trainGlow.addColorStop(0, 'rgba(255,255,255,0.5)');
+  trainGlow.addColorStop(1, 'rgba(255,255,255,0)');
+  cityCtx.fillStyle = trainGlow;
+  cityCtx.beginPath();
+  cityCtx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
+  cityCtx.fill();
+}
+
+function animateCityStats() {
+  const km = TOTAL_TRIPS * Config.distanceOneWay * 2;
+  const hours = TOTAL_TRIPS * Config.hoursOneWay * 2;
+  let curKm = 0, curH = 0;
+  const stepKm = km / 50, stepH = hours / 50;
+  const timer = setInterval(() => {
+    curKm += stepKm; curH += stepH;
+    if (curKm >= km) { curKm = km; curH = hours; clearInterval(timer); }
+    $('#statKm').textContent = Math.floor(curKm).toLocaleString();
+    $('#statHours').textContent = Math.floor(curH).toLocaleString();
+  }, 30);
+}
+
+// ----- 奖品转盘 -----
+// 奖品在这里改：改成你准备的真实礼物
+const WheelPrizes = ['Airpods pro3', 'Switch游戏机', '520现金', '富士拍立得相机', '戴森吹风机', '香水'];
+// 固定中奖：Airpods pro3（数组第 0 项）
+const WHEEL_FIXED_IDX = 0;
+let wheelRot = 0, wheelSpinning = false;
+
+function setupWheel() {
+  const cv = $('#wheelCanvas');
+  if (!cv) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cv.getBoundingClientRect();
+  if (rect.width === 0) { setTimeout(setupWheel, 200); return; }
+  cv.width = rect.width * dpr;
+  cv.height = rect.height * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = rect.width / 2, cy = rect.height / 2;
+  const R = rect.width / 2 - 6;
+  const n = WheelPrizes.length;
+  const arc = Math.PI * 2 / n;
+  // 扇区
+  for (let i = 0; i < n; i++) {
+    const a0 = -Math.PI / 2 + i * arc;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, a0, a0 + arc);
+    ctx.closePath();
+    ctx.fillStyle = i % 2 === 0 ? '#ffd9e3' : '#fff1f6';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(183,110,121,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  // 扇区文字
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '600 13px sans-serif';
+  ctx.fillStyle = '#5a3a2a';
+  for (let i = 0; i < n; i++) {
+    const mid = -Math.PI / 2 + (i + 0.5) * arc;
+    ctx.save();
+    ctx.rotate(mid);
+    ctx.translate(R * 0.62, 0);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText(WheelPrizes[i], 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+  // 外圈 + 中心
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#b76e79';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+  ctx.fillStyle = '#b76e79';
+  ctx.fill();
+  ctx.font = '18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('🎁', cx, cy + 1);
+
+  $('#wheelSpin').addEventListener('click', spinWheel);
+}
+
+// 转盘滴答声
+function wheelTick() {
+  try {
+    if (!window._tickCtx) window._tickCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ac = window._tickCtx;
+    if (ac.state === 'suspended') ac.resume();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'square';
+    o.frequency.value = 1800;
+    g.gain.setValueAtTime(0.06, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.05);
+    o.connect(g).connect(ac.destination);
+    o.start();
+    o.stop(ac.currentTime + 0.05);
+  } catch (e) {}
+}
+
+function spinWheel() {
+  if (wheelSpinning) return;
+  wheelSpinning = true;
+  const btn = $('#wheelSpin');
+  btn.disabled = true;
+  btn.textContent = '转 动 中…';
+  const cv = $('#wheelCanvas');
+  const n = WheelPrizes.length;
+  // 固定中奖（WHEEL_FIXED_IDX），但视觉上仍随机旋转 + 抖动
+  const idx = WHEEL_FIXED_IDX;
+  const turns = 4 + Math.floor(Math.random() * 3);
+  const jitter = (Math.random() - 0.5) * 40; // ±20°，扇区宽 60°，不会跨格
+  const base = 360 - (idx * 360 / n + 30);
+  const offset = ((base - (wheelRot % 360)) % 360 + 360) % 360;
+  const startRot = wheelRot;
+  const delta = turns * 360 + offset + jitter;
+  const dur = 4200;
+  const t0 = performance.now();
+  let lastSeg = -1;
+  function frame(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    const ease = 1 - Math.pow(1 - p, 3); // 先快后慢
+    wheelRot = startRot + delta * ease;
+    cv.style.transform = `rotate(${wheelRot}deg)`;
+    // 指针处扇区变化时播放滴答
+    const seg = Math.floor(((360 - (wheelRot % 360)) % 360) / (360 / n));
+    if (seg !== lastSeg) { if (lastSeg !== -1) wheelTick(); lastSeg = seg; }
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      const prize = WheelPrizes[idx];
+      toast(`🎉 恭喜获得：${prize}`, 3200);
+      const res = $('#wheelResult');
+      res.textContent = `🎉 ${prize}`;
+      res.classList.add('show');
+      // 转盘中心烟花
+      const r = cv.getBoundingClientRect();
+      fireworkAt(r.left + r.width / 2, r.top + r.height / 2, 44, '#b76e79');
+      setTimeout(() => fireworkAt(r.left + r.width / 2, r.top + r.height / 2, 36, '#ffd700'), 260);
+      try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) {}
+      btn.textContent = '已 领 取';
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ----- 情书打字机 -----
+const LoveLetter = `宝宝先生！波纳素力  这是我陪你过的第三个生日
+
+今年也是特殊的一年 明年开始我们就都是可以在正日为对方庆祝了！想想就很梦幻很激动
+
+今年是收获的一年 我们的感情更加稳定 更加幸福 收获了更多的爱
+
+今年也是成长的一年 我们成长了许多 自从之前广州的事情之后 基本就没有吵过架了
+
+今年更是令人憧憬的一年 因为我们终于要准备结婚了 明年你就是我名正言顺的老婆了宝宝
+
+我超级开心 也超级激动 可能我们还是会有摩擦 但是我相信经历了这么多的我们 所有的问题我们都能迎刃而解
+
+太多的话我不懂得怎么表达 爱意都藏在稀松平常的日常中
+
+我爱你宝宝 生日快乐！
+`;
+
+function startLoveLetter() {
+  const el = $('#loveLetter');
+  el.innerHTML = '<span class="cursor"></span>';
+  let idx = 0;
+  function type() {
+    if (idx >= LoveLetter.length) {
+      bigFirework();
+      return;
+    }
+    const text = LoveLetter.slice(0, idx + 1);
+    el.innerHTML = text.replace(/\n/g, '<br>') + '<span class="cursor"></span>';
+    idx++;
+    const ch = LoveLetter[idx - 1];
+    const delay = ch === '。' || ch === '！' ? 300 : (ch === '\n' ? 200 : 60);
+    setTimeout(type, delay);
+  }
+  setTimeout(type, 800);
+}
+
+// ----- 烟花 -----
+const fwCanvas = $('#fireworkCanvas');
+const fwCtx = fwCanvas.getContext('2d');
+let fwParticles = [];
+
+function resizeFw() {
+  const w = innerWidth * devicePixelRatio, h = innerHeight * devicePixelRatio;
+  // 仅在尺寸变化时重设（设置 width 会重置变换矩阵），避免重复 scale 导致坐标翻倍
+  if (fwCanvas.width !== w || fwCanvas.height !== h) {
+    fwCanvas.width = w;
+    fwCanvas.height = h;
+    fwCtx.scale(devicePixelRatio, devicePixelRatio);
+  }
+  fwCanvas.style.width = innerWidth + 'px';
+  fwCanvas.style.height = innerHeight + 'px';
+}
+
+let fwRunning = false;
+function ensureFw() {
+  if (fwRunning) return;
+  fwRunning = true;
+  resizeFw();
+  drawFw();
+}
+
+// 在指定位置炸一小簇烟花（供关卡完成特效用）
+function fireworkAt(x, y, n = 40, color = '#b76e79') {
+  ensureFw();
+  for (let i = 0; i < n; i++) {
+    const angle = (Math.PI * 2 * i) / n;
+    const speed = 1.5 + Math.random() * 3;
+    fwParticles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      color
+    });
+  }
+}
+
+function launchFirework() {
+  const x = Math.random() * innerWidth;
+  const y = Math.random() * innerHeight * 0.5 + 80;
+  const colors = ['#b76e79', '#c08552', '#ffd700', '#5dbbe0', '#ffaa00'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  for (let i = 0; i < 50; i++) {
+    const angle = (Math.PI * 2 * i) / 50;
+    const speed = 2 + Math.random() * 3;
+    fwParticles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      color
+    });
+  }
+}
+
+function drawFw() {
+  fwCtx.clearRect(0, 0, innerWidth, innerHeight);
+  fwParticles = fwParticles.filter(p => p.life > 0);
+  fwParticles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= 0.012;
+    fwCtx.fillStyle = p.color;
+    fwCtx.globalAlpha = p.life;
+    fwCtx.beginPath();
+    fwCtx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    fwCtx.fill();
+  });
+  fwCtx.globalAlpha = 1;
+  requestAnimationFrame(drawFw);
+}
+
+function playFireworks() {
+  resizeFw();
+  drawFw();
+  // 周期性放烟花
+  setInterval(() => {
+    if (State.currentScreen === 'finale') launchFirework();
+  }, 1500);
+}
+
+function bigFirework() {
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => launchFirework(), i * 200);
+  }
+}
+
+// =================================================================
+// 背景音乐
+// =================================================================
+let musicEl = null;
+function initAudio() {
+  // 尝试加载背景音乐 mp3，失败则用 oscillator 模拟柔和背景音
+  musicEl = new Audio('贊詩%20-%20赞美诗.mp3');
+  musicEl.loop = true;
+  musicEl.volume = 0.4;
+  musicEl.play().then(() => {
+    State.musicOn = true;
+    $('#musicBtn').style.display = 'flex';
+    $('#musicBtn').textContent = '♪';
+  }).catch(() => {
+    // 没有音乐文件，用合成音
+    synthMusic();
+  });
+}
+
+function synthMusic() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // 简单的钢琴音色背景
+    const notes = [523, 587, 659, 587]; // C5 D5 E5 D5
+    let i = 0;
+    function playNote() {
+      if (!State.musicOn) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = notes[i % notes.length];
+      gain.gain.value = 0;
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.05);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.8);
+      i++;
+      setTimeout(playNote, 600);
+    }
+    State.musicOn = true;
+    $('#musicBtn').style.display = 'flex';
+    playNote();
+  } catch(e) { console.warn('Music failed:', e); }
+}
+
+$('#musicBtn').addEventListener('click', () => {
+  if (musicEl) {
+    if (State.musicOn) { musicEl.pause(); State.musicOn = false; $('#musicBtn').textContent = '🔇'; }
+    else { musicEl.play(); State.musicOn = true; $('#musicBtn').textContent = '♪'; }
+  }
+});
+
+// =================================================================
+// 初始化
+// =================================================================
+resizeBg();
+initBg();
+drawBg();
+resizeFw();
+window.addEventListener('resize', () => { resizeBg(); resizeFw(); initBg(); });
+
+// 禁止双击缩放
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if (State.currentScreen !== 'finale') e.preventDefault();
+}, { passive: false });
+</script>
+</body>
+</html>

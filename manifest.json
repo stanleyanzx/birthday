@@ -1,0 +1,25 @@
+{
+  "name": "给她的生日惊喜",
+  "short_name": "生日惊喜",
+  "description": "一份特别的生日礼物",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0014",
+  "theme_color": "#6a3fb5",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjYjM4NGZmIiBkPSJNMjU2IDQ3Ny4xYzAtMTUyLjYgMC0yMjYuMiAwLTIyNi4yYy03Ni42LTY3LjMtMTUxLjItMzYuMS0xNTEuMiA1MS4zIDAgNzUuMyA4MS4yIDkzLjIgMTUxLjIgMTc1IDE1Mi4zLTgxLjggMTUxLjItOTkuNyAxNTEuMi0xNzUgMC04Ny40LTc0LjYtMTE4LjYtMTUxLjItNTEuM3oiLz48L3N2Zz4=",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjYjM4NGZmIiBkPSJNMjU2IDQ3Ny4xYzAtMTUyLjYgMC0yMjYuMiAwLTIyNi4yYy03Ni42LTY3LjMtMTUxLjItMzYuMS0xNTEuMiA1MS4zIDAgNzUuMyA4MS4yIDkzLjIgMTUxLjIgMTc1IDE1Mi4zLTgxLjggMTUxLjItOTkuNyAxNTEuMi0xNzUgMC04Ny40LTc0LjYtMTE4LjYtMTUxLjItNTEuM3oiLz48L3N2Zz4=",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
